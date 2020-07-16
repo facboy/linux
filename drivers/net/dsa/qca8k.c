@@ -16,8 +16,13 @@
 #include <linux/mdio.h>
 #include <linux/gpio/consumer.h>
 #include <linux/etherdevice.h>
+#include <linux/if_vlan.h>
+#include <uapi/linux/if_ether.h>
 
 #include "qca8k.h"
+
+/* also defined in net/dsa/tag_qca.c */
+#define QCA_HDR_LEN	2
 
 #define MIB_DESC(_s, _o, _n)	\
 	{			\
@@ -1023,6 +1028,16 @@ qca8k_get_tag_protocol(struct dsa_switch *ds, int port,
 	return DSA_TAG_PROTO_QCA;
 }
 
+static int
+qca8k_change_mtu(struct dsa_switch *ds, int port, int mtu)
+{
+	struct qca8k_priv *priv = (struct qca8k_priv *)ds->priv;
+	qca8k_rmw(priv, QCA8K_REG_MAX_FRAME_SIZE,
+		  QCA8K_MAX_FRAME_SIZE_MTU, 
+		  mtu + VLAN_ETH_HLEN + ETH_FCS_LEN + VLAN_HLEN + QCA_HDR_LEN);
+	return 0;
+}
+
 static const struct dsa_switch_ops qca8k_switch_ops = {
 	.get_tag_protocol	= qca8k_get_tag_protocol,
 	.setup			= qca8k_setup,
@@ -1040,6 +1055,7 @@ static const struct dsa_switch_ops qca8k_switch_ops = {
 	.port_fdb_add		= qca8k_port_fdb_add,
 	.port_fdb_del		= qca8k_port_fdb_del,
 	.port_fdb_dump		= qca8k_port_fdb_dump,
+	.port_change_mtu	= qca8k_change_mtu,
 };
 
 static int
